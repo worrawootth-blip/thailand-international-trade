@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thailand International Trade | การค้าระหว่างประเทศของไทย</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+body{font-family:Sarabun,sans-serif;margin:0;background:#f3f5f9;color:#1d2433}
+header{background:#1b3a6b;color:#fff;padding:14px 22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+h1{font-size:20px;margin:0}main{padding:16px 22px;max-width:1200px;margin:auto}
+.card{background:#fff;border-radius:10px;padding:14px;margin-bottom:14px;box-shadow:0 1px 4px #0002}
+button,select,input{font:inherit;padding:6px 12px;border-radius:6px;border:1px solid #b8c0d0;background:#fff;cursor:pointer}
+button.on,button.pri{background:#1b3a6b;color:#fff;border-color:#1b3a6b}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{padding:6px 8px;border-bottom:1px solid #e3e7ef;text-align:left}
+th{background:#eef2f8;cursor:pointer;user-select:none;position:sticky;top:0}td.n,th.n{text-align:right}
+tr.ft td{font-weight:700;background:#f6f8fb}
+.pos{color:#12872f;font-weight:600}.neg{color:#d62828;font-weight:600}
+.wrap{max-height:520px;overflow:auto}.note{font-size:12.5px;color:#58627a}
+#msg{color:#b36b00}.chip{background:#e6edf8;border-radius:14px;padding:3px 10px;font-size:13px}.chip a{cursor:pointer;color:#d62828;margin-left:6px}
+label{margin-right:8px}
+#cmpList{position:absolute;left:0;top:100%;z-index:20;background:#fff;border:1px solid #b8c0d0;border-radius:6px;max-height:240px;overflow:auto;min-width:260px;display:none;box-shadow:0 2px 8px #0003}.opt{padding:5px 10px;cursor:pointer}.opt:hover,.opt.hl{background:#e6edf8}.opt.no{color:#58627a;cursor:default}
+</style></head><body>
+<header><h1 id="title"></h1><div><button id="lth" onclick="setLang('th')">ไทย</button> <button id="len" onclick="setLang('en')">EN</button> <button id="bRst" onclick="resetUI()"></button></div></header>
+<main>
+<details class="card" open><summary id="hSum" style="cursor:pointer;font-weight:600"></summary><div id="hBody" class="note" style="font-size:14px;line-height:1.6"></div></details>
+<div class="card">
+ <div class="row"><input type="file" id="file" accept=".xlsx,.xls" multiple hidden onchange="loadFiles(this)">
+  <button class="pri" id="bUp" onclick="file.click()"></button><button id="bClr" onclick="clearAll()"></button></div>
+ <div class="row" id="chips"></div><div id="msg"></div>
+</div>
+<div class="card">
+ <div class="row"><b id="lMode"></b><button id="mGlobal" onclick="setMode('global')"></button><button id="mBorder" onclick="setMode('border')"></button></div>
+ <div class="row" id="nb" style="display:none"></div>
+ <div class="row" id="cmpRow"><b id="lCmp"></b><div style="position:relative"><input id="cmpIn" autocomplete="off" oninput="cmpSug()" onfocus="cmpSug()" onkeydown="cmpKey(event)" style="width:240px"><div id="cmpList"></div></div><span id="cmpChips" class="row" style="margin:0"></span><button id="cmpClr" onclick="cmpSet([])"></button></div>
+ <div class="row"><b id="lPer"></b><button id="pS" onclick="setP('s')"></button><button id="pR" onclick="setP('r')"></button><button id="pA" onclick="setP('a')"></button>
+  <span id="boxS"><select id="year"></select></span><span id="boxR" style="display:none"><select id="y1"></select> – <select id="y2"></select></span>
+  <b id="lMon"></b><select id="per"></select><label id="allPerBox" style="display:none"><input type="checkbox" id="allPer" checked onchange="render()"> <span id="lAllPer"></span></label><b id="lFlv"></b><select id="flv"></select>
+  <button class="pri" id="bGo" onclick="render()"></button></div>
+</div>
+<div class="card">
+ <div class="row"><button id="vC" onclick="setView('c')"></button><button id="vI" onclick="setView('i')"></button><button id="vE" onclick="setView('e')"></button><button id="vT" onclick="setView('t')"></button>
+  <button id="bX" onclick="xl()"></button><button id="bG" onclick="showChart()"></button></div>
+ <div class="wrap"><table id="tbl"></table></div><div class="note" id="src"></div>
+</div>
+<div class="card" id="chartCard" style="display:none">
+ <div class="row"><select id="ctype" onchange="drawChart()"></select>
+  <label><input type="checkbox" id="lab" onchange="drawChart()"> <span id="lLab"></span></label><select id="labm" onchange="$('lab').checked=true;drawChart()"></select><label><input type="checkbox" id="abbr" checked onchange="drawChart()"> <span id="lAbbr"></span></label><button id="bP" onclick="png()"></button></div>
+ <div style="height:440px"><canvas id="cv"></canvas></div>
+</div>
+</main>
+<script>
+const T={th:{title:"การค้าระหว่างประเทศของไทย (ข้อมูลกระทรวงพาณิชย์)",hs:"วิธีใช้และแหล่งข้อมูล",
+hb:"<ul><li><b>แหล่งข้อมูลทางการ:</b> <a href='https://tradereport.moc.go.th/th' target='_blank'>tradereport.moc.go.th</a> ศูนย์เทคโนโลยีสารสนเทศและการสื่อสาร สำนักงานปลัดกระทรวงพาณิชย์ ร่วมกับกรมศุลกากร</li><li><b>ตารางประเทศ/กลุ่มประเทศ:</b> เมนู 'สถิติการค้าระหว่างประเทศของไทย' เลือกปี ช่วงเดือน สกุลเงิน และประเทศที่ต้องการ (เลือกทั้งหมดหรือเฉพาะเพื่อนบ้านได้) แล้วส่งออกเป็น Excel</li><li><b>ตารางสินค้า 10 อันดับ:</b> เมนู 'สินค้านำเข้าสำคัญของไทย' และ 'สินค้าส่งออกสำคัญของไทย' ส่งออกเป็น Excel (ต้องแนบทั้งสองไฟล์ถ้าต้องการทั้งสองตาราง)</li><li><b>รายงานตามโครงสร้างสินค้า (หลายปีในไฟล์เดียว):</b> แนบได้ ระบบแตกเป็นรายปีให้อัตโนมัติ ใช้ทำตารางสินค้า 10 อันดับและแนวโน้มรวมย้อนหลัง</li><li><b>แนบไฟล์:</b> กดปุ่มแนบ เลือกได้หลายไฟล์พร้อมกัน ถ้าเป็นรายงานชนิด ปี และช่วงเดือนเดียวกัน (เช่น ไฟล์ 10 อันดับ กับไฟล์เฉพาะประเทศเพื่อนบ้าน) ระบบจะรวมรายการเข้าด้วยกัน ชื่อซ้ำจะใช้ค่าจากไฟล์ล่าสุด ระบบจำไฟล์ไว้ในเบราว์เซอร์นี้ ข้อมูลสะสมเป็นปีย้อนหลังได้</li><li><b>อัปเดต:</b> เมื่อมีข้อมูลเดือนหรือปีใหม่ ดาวน์โหลดไฟล์ใหม่มาแนบเพิ่ม ถ้าปีและช่วงเดือนเดิมจะถูกแทนที่ ใช้ช่วงเดือนเดียวกันทุกปีเพื่อเปรียบเทียบแนวโน้ม</li><li><b>หมายเหตุ:</b> ปีเป็น พ.ศ. ตามไฟล์ (หน่วยตามที่ไฟล์ระบุ เช่น ล้านบาท) ข้อมูลนี้เป็นการค้ารวม แยกการค้าข้ามแดนกับผ่านแดนไม่ได้ และ 'จีนตอนใต้' ใช้ข้อมูลจีนทั้งประเทศ</li></ul>",
+up:"แนบไฟล์ Excel จากกระทรวงพาณิชย์",clr:"ล้างข้อมูลทั้งหมด",mode:"โหมด:",global:"การค้ากับทั่วโลก",border:"การค้าชายแดน/ผ่านแดน (เพื่อนบ้าน)",
+per:"ช่วงเวลา:",ps:"ปีเดียว",pr:"ช่วงปี",pa:"ทุกปี",mon:"ช่วงเดือน:",flv:"รายงาน:",fc:"รายประเทศ",fg:"กลุ่มประเทศ",go:"ประมวลข้อมูล",
+vc:"ตารางรายประเทศ",vi:"นำเข้าสูงสุด 10 อันดับ",ve:"ส่งออกสูงสุด 10 อันดับ",vt:"แนวโน้มรายปี",xl:"ดาวน์โหลด Excel",gr:"สร้างกราฟ",png:"ดาวน์โหลด PNG",lab:"แสดงตัวเลขในกราฟ",
+country:"ประเทศ/กลุ่ม",imp:"มูลค่านำเข้า",exp:"มูลค่าส่งออก",bal:"ดุลการค้า",total:"มูลค่าการค้ารวม",rank:"อันดับ",cmd:"สินค้า",val:"มูลค่า",share:"สัดส่วน %",yr:"ปี",sum:"รวม",
+types:["แท่ง","แท่งแนวนอน","เส้น","วงกลม","โดนัท","เรดาร์"],all:"เลือกทั้งหมด",la:"ลาว",my:"เมียนมา",kh:"กัมพูชา",vn:"เวียดนาม",ml:"มาเลเซีย",sg:"สิงคโปร์",cn:"จีน(ตอนใต้)",
+none:"ยังไม่มีข้อมูลสำหรับตัวเลือกนี้ กรุณาแนบไฟล์ที่เกี่ยวข้อง หรือเลือกปี/ช่วงเดือนอื่น",have:"ข้อมูลที่มีสำหรับตารางนี้ (ช่วงเดือน: ปี): ",auto:"ไม่มีข้อมูลตามตัวเลือกเดิม ระบบเลือกปี/ช่วงเดือนล่าสุดที่มีข้อมูลให้แล้ว",bad:"อ่านไฟล์ไม่ได้ (ไม่ใช่รูปแบบรายงานของกระทรวงพาณิชย์): ",added:"เพิ่มข้อมูลแล้ว: ",
+unit:"หน่วย: ",gk:"สีเขียว=เกินดุล สีแดง=ขาดดุล",srcN:"ที่มา: กระทรวงพาณิชย์ โดยความร่วมมือจากกรมศุลกากร",kC:"ประเทศ",kG:"กลุ่ม",kM:"สินค้านำเข้า",kX:"สินค้าส่งออก",kS:"รายสินค้า",fs:"รายสินค้า",labs:["ทุกจุด","เฉพาะจุดสุดท้าย (ปีล่าสุด)","ทุก 2 จุด","ทุก 3 จุด","ทุก 5 จุด","ทุก 7 จุด","ทุก 10 จุด","เฉพาะจุดสูงสุด","เฉพาะจุดต่ำสุด","สูงสุดและต่ำสุด"],cmp:"เปรียบเทียบประเทศ:",cmpc:"ล้างประเทศ",cmph:"พิมพ์ชื่อประเทศ เช่น จ, ญ, ส...",cmpn:"ไม่พบประเทศที่ตรงกัน",allp:"รวมทุกช่วงเดือน",rst:"รีเซ็ตหน้าใหม่",abbr:"ย่อตัวเลข (K/M/B/T)",cnote:"จัดอันดับจากสินค้าที่อยู่ในไฟล์ที่แนบเท่านั้น",bm:"โหมดเพื่อนบ้าน: ใช้รายงานรายประเทศ กรองเฉพาะประเทศเพื่อนบ้านที่ติ๊กไว้",nb0:"โหมดเพื่อนบ้านต้องใช้ไฟล์รายงานรายประเทศ กรุณาแนบไฟล์ประเทศ"},
+en:{title:"Thailand International Trade (Ministry of Commerce data)",hs:"How to use & data source",
+hb:"<ul><li><b>Official source:</b> <a href='https://tradereport.moc.go.th/en/' target='_blank'>tradereport.moc.go.th</a> (Ministry of Commerce, with the Customs Department)</li><li><b>Country / country-group tables:</b> menu 'Thailand's international trade statistics': choose year, months, currency and countries (all, or just neighbours), then export to Excel</li><li><b>Top 10 commodity tables:</b> export the 'Major import commodities' and 'Major export commodities' reports to Excel (attach both for both tables)</li><li><b>Attach files:</b> select several files at once; they are remembered in this browser and accumulate into a history</li><li><b>Updating:</b> when new months or years are published, download and attach the new file; the same year and month range is replaced. Use the same month range each year for trends</li><li><b>Notes:</b> years are shown as in the file; units follow the file (e.g. million baht). Data are total trade: cross-border and transit cannot be separated, and 'Southern China' uses all-China data</li></ul>",
+up:"Attach Ministry of Commerce Excel",clr:"Clear all data",mode:"Mode:",global:"Global trade",border:"Border/Transit trade (neighbours)",
+per:"Period:",ps:"Single year",pr:"Year range",pa:"All years",mon:"Months:",flv:"Report:",fc:"By country",fg:"Country groups",go:"Process data",
+vc:"By country",vi:"Top 10 imports",ve:"Top 10 exports",vt:"Yearly trend",xl:"Download Excel",gr:"Create chart",png:"Download PNG",lab:"Show data labels",
+country:"Country/group",imp:"Imports",exp:"Exports",bal:"Trade balance",total:"Total trade",rank:"Rank",cmd:"Commodity",val:"Value",share:"Share %",yr:"Year",sum:"Total",
+types:["Bar","Horizontal bar","Line","Pie","Doughnut","Radar"],all:"Select all",la:"Laos",my:"Myanmar",kh:"Cambodia",vn:"Vietnam",ml:"Malaysia",sg:"Singapore",cn:"China (south)",
+none:"No data for this selection yet. Attach the relevant file or choose another year/months.",have:"Data available for this table (months: years): ",auto:"No data for the previous selection; switched to the latest year/months that has data.",bad:"Cannot read file (not a Ministry of Commerce report): ",added:"Added: ",
+unit:"Unit: ",gk:"Green = surplus, Red = deficit",srcN:"Source: Ministry of Commerce, with the Customs Department",kC:"Country",kG:"Group",kM:"Commodity imports",kX:"Commodity exports",kS:"Commodity",fs:"By commodity",labs:["All points","Last point only","Every 2nd","Every 3rd","Every 5th","Every 7th","Every 10th","Highest only","Lowest only","Highest & lowest"],cmp:"Compare countries:",cmpc:"Clear countries",cmph:"Type a country name, e.g. C, J, S...",cmpn:"No matching country",allp:"All month ranges",rst:"Reset page",abbr:"Abbreviate numbers (K/M/B/T)",cnote:"Ranked among the commodities in the attached file only",bm:"Neighbour mode: country report filtered to the ticked neighbours",nb0:"Neighbour mode needs a by-country report. Please attach one."}};
+const EN={'สหรัฐอเมริกา':'USA','จีน':'China','ญี่ปุ่น':'Japan','สิงคโปร์':'Singapore','ออสเตรเลีย':'Australia','อินเดีย':'India','มาเลเซีย':'Malaysia','เวียดนาม':'Vietnam','ฮ่องกง':'Hong Kong','อินโดนีเซีย':'Indonesia','ลาว':'Laos','สปป. ลาว':'Laos','เมียนมา':'Myanmar','กัมพูชา':'Cambodia','เกาหลีใต้':'South Korea','ไต้หวัน':'Taiwan','ฟิลิปปินส์':'Philippines','เยอรมนี':'Germany','สหราชอาณาจักร':'UK','ฝรั่งเศส':'France','เนเธอร์แลนด์':'Netherlands','รัสเซีย':'Russia','ซาอุดีอาระเบีย':'Saudi Arabia','สหรัฐอาหรับเอมิเรตส์':'UAE','แคนาดา':'Canada','อิตาลี':'Italy','สวิตเซอร์แลนด์':'Switzerland','บราซิล':'Brazil'};
+const MON={'ม.ค.':'Jan','ก.พ.':'Feb','มี.ค.':'Mar','เม.ย.':'Apr','พ.ค.':'May','มิ.ย.':'Jun','ก.ค.':'Jul','ส.ค.':'Aug','ก.ย.':'Sep','ต.ค.':'Oct','พ.ย.':'Nov','ธ.ค.':'Dec','ทั้งปี':'Full year'};
+const NB={la:/ลาว/,my:/เมียนมา|พม่า/,kh:/กัมพูชา/,vn:/เวียดนาม/,ml:/มาเลเซีย/,sg:/สิงคโปร์/,cn:/^จีน$/};
+let lang='th',mode='global',view='c',pmode='s',sort={k:null,d:-1},chart,DS=[],cmp=[],cmpL=[];
+try{DS=JSON.parse(localStorage.getItem('moc_ds')||'[]')}catch(e){}
+const $=id=>document.getElementById(id),t=k=>T[lang][k],fmt=v=>(+v).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+const yl=y=>lang=='th'?y:y-543,pl=p=>lang=='th'?p:p.replace(/ม\.ค\.|ก\.พ\.|มี\.ค\.|เม\.ย\.|พ\.ค\.|มิ\.ย\.|ก\.ค\.|ส\.ค\.|ก\.ย\.|ต\.ค\.|พ\.ย\.|ธ\.ค\.|ทั้งปี/g,m=>MON[m]);
+const nm=n=>lang=='en'&&EN[n]?EN[n]:n,un=u=>lang=='th'?u:/บาท/.test(u)?'million baht':/ดอลลาร์|เหรียญ/.test(u)?'million USD':u;
+const sv=()=>{try{localStorage.setItem('moc_ds',JSON.stringify(DS))}catch(e){}};
+function parseSheet(R,fname){
+ const s=x=>x==null?'':String(x).trim(),bad=m=>new Error(m||'รูปแบบไม่ตรง');
+ const hi=R.findIndex(r=>s(r[0])=='ลำดับ');if(hi<0)throw bad('ไม่พบแถวหัวตาราง "ลำดับ"');
+ const head=R[hi].map(s),subR=R[hi+1]&&s(R[hi+1][0])===''&&s(R[hi+1][1])===''?R[hi+1].map(s):null;
+ const top=R.slice(0,hi).map(r=>s(r[0])).join(' '),um=top.match(/สกุลเงิน\s*(\S+)/),unit=um?um[1]:'ล้านบาท';
+ const yp=x=>{const m=String(x).match(/^(\d{4})(?:\s*\(([^)]*)\))?\s*$/);return m?{year:+m[1],per:m[2]?m[2].trim():'ทั้งปี'}:null};
+ const ix=(re,ex)=>head.findIndex((h,i)=>i>1&&re.test(h)&&!(ex&&ex.test(h)));
+ let kind='trade',flow='',vi=-1,defs=[];
+ const yrs=subR?[...new Set(subR.filter((x,i)=>i>1&&yp(x)))]:[];
+ if(subR&&yrs.length>1){
+  const bs=head.map((h,i)=>i>1&&h?i:-1).filter(i=>i>0);
+  const col=re=>{const k=bs.findIndex(i=>re.test(head[i]));if(k<0)return null;const e=bs[k+1]||head.length,o={};for(let j=bs[k];j<e;j++)if(yp(subR[j]))o[subR[j]]=j;return o};
+  const E=col(/^มูลค่าการส่งออก/),I=col(/^มูลค่าการนำเข้า/),B=col(/^ดุลการค้า/);if(!E||!I)throw bad('ไม่พบคอลัมน์มูลค่าส่งออก/นำเข้า');
+  for(const k in E)if(I[k]!=null)defs.push({...yp(k),ci:{exp:E[k],imp:I[k],bal:B&&B[k]!=null?B[k]:-1}});
+ }else{
+  const pt=(subR&&subR.find((x,i)=>i>1&&x))||top,ym=pt.match(/(\d{4})/)||top.match(/(\d{4})/);if(!ym)throw bad('ไม่พบปีในหัวรายงาน');
+  const pm=pt.match(/\(([^)]*)\)/),ci={exp:ix(/มูลค่า.*ส่งออก/),imp:ix(/มูลค่า.*นำเข้า/),bal:ix(/ดุลการค้า/,/ปริมาณ/)};
+  if(!(ci.exp>=0&&ci.imp>=0)){kind='comm';vi=ix(/มูลค่า/);let tx=top,X=/ส่งออก/.test(tx),M=/นำเข้า/.test(tx);if(X==M){tx=head.join(' ');X=/ส่งออก/.test(tx);M=/นำเข้า/.test(tx)}if(vi<0)throw bad('ไม่พบคอลัมน์มูลค่า');if(X==M)throw bad('ระบุไม่ได้ว่าเป็นการนำเข้าหรือส่งออก');flow=M?'M':'X'}
+  defs.push({year:+ym[1],per:pm?pm[1].trim():'ทั้งปี',ci});
+ }
+ const up=R.flat().find(c=>/ข้อมูลล่าสุด/.test(String(c))),upd=up?String(up).replace(/^.*(ข้อมูลล่าสุด)/,'$1'):'';
+ let cf=0;const mk=df=>{const rows=[];let tot=null;
+  for(let i=hi+(subR?2:1);i<R.length;i++){const r=R[i],a=s(r[0]);let n=s(r[1]);if(/^\d{6,}\s*:/.test(n))cf=1;
+   if(/^(ที่มา|หมายเหตุ)/.test(a))break;if(!n)continue;
+   if(/^[\d.]+$/.test(n)&&s(r[2])&&isNaN(+r[2]))n=n+' '+s(r[2]);n=n.replace(/^\d{6,}\s*:\s*/,'');
+   const num=k=>k>=0&&r[k]!==''&&!isNaN(+r[k])?+r[k]:0;let o;
+   if(kind=='trade'){o={name:n,exp:num(df.ci.exp),imp:num(df.ci.imp)};o.bal=df.ci.bal>=0?num(df.ci.bal):o.exp-o.imp}else o={name:n,val:num(vi)};
+   if(/^รวม(ทั้งหมด|ทั้งสิ้น)?$/.test(n))tot=o;else if(/^\d+$/.test(a))rows.push(o)}
+  const flv=kind!='trade'?'':cf||/สินค้า|พิกัด/.test(head[1]||'')||(!/ประเทศ|ทวีป/.test((head[1]||'')+' '+top)&&/สินค้า|พิกัด/.test(top))?'commodity':rows.some(r=>/\(.*,.*\)/.test(r.name))?'group':'country';
+  return{kind,flow,flv,year:df.year,per:df.per,unit,rows,tot,upd,file:fname}};
+ const out=defs.map(mk).filter(d=>d.rows.length);if(!out.length)throw bad('ไม่พบแถวข้อมูล');
+ const L=out[out.length-1];let rb='';
+ if(L.kind=='trade'&&L.flv=='commodity'){const dn=k=>L.rows.slice(1).filter((r,i)=>r[k]<=L.rows[i][k]).length;rb=dn('imp')>dn('exp')?'M':'X'}
+ out.forEach(d=>{d.rb=rb;d.id=[d.kind,d.flow,d.flv,rb,d.year,d.per,d.unit].join('|')});return out;}
+let curUnit='';
+const abv=(v,u)=>{const x=+v*(/ล้าน|million/i.test(u)?1e6:1),a=Math.abs(x);for(const[d,s]of[[1e12,'T'],[1e9,'B'],[1e6,'M'],[1e3,'K']])if(a>=d){const n=x/d,k=Math.abs(n);return (k>=100?n.toFixed(0):k>=10?n.toFixed(1):n.toFixed(2))+s}return x%1?x.toFixed(2):String(x)};
+const lf=v=>$('abbr').checked?abv(v,curUnit):fmt(v);
+const allPer=()=>view=='t'&&$('allPer').checked;
+const tv=o=>o?(o.exp||0)+(o.imp||0)+(o.val||0):0;
+function mergeDs(d){const ex=DS.find(x=>x.id==d.id);if(!ex){DS.push(d);return}
+ const m=new Map(ex.rows.map(r=>[r.name,r]));d.rows.forEach(r=>m.set(r.name,r));ex.rows=[...m.values()];
+ if(tv(d.tot)>=tv(ex.tot))ex.tot=d.tot;ex.upd=d.upd||ex.upd}
+async function loadFiles(inp){const ok=[],er=[];let last=null;
+ for(const f of inp.files){try{const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
+  const ds=parseSheet(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''}),f.name);
+  ds.forEach(d=>{mergeDs(d);if(!last||d.year>=last.year)last=d});ok.push(f.name+' ('+ds[0].rows.length+(ds.length>1?'×'+ds.length:'')+')')}catch(e){er.push(f.name+': '+e.message)}}
+ inp.value='';sv();$('msg').textContent=(ok.length?t('added')+ok.join(', ')+'. ':'')+(er.length?t('bad')+er.join(', '):'');
+ if(last){fill();$('year').value=last.year;$('per').value=last.per;if(last.kind=='trade')$('flv').value=last.flv;setView(last.kind=='trade'?'c':last.flow=='M'?'i':'e')}else render();}
+const kn_=d=>d.kind=='trade'?(d.flv=='group'?t('kG'):d.flv=='commodity'?t('kS'):t('kC')):d.flow=='M'?t('kM'):t('kX');
+const gk=d=>[d.kind,d.flow,d.flv,d.rb,d.per,d.unit].join('|');
+function clearAll(){DS=[];sv();try{localStorage.removeItem('moc_ds')}catch(e){}$('file').value='';$('msg').textContent='';if(chart){chart.destroy();chart=null}$('chartCard').style.display='none';cmp=[];cmpChips();fill();render()}
+function delGrp(k){DS=DS.filter(d=>gk(d)!=k);sv();fill();render()}
+function fill(){const ys=[...new Set(DS.map(d=>d.year))].sort((a,b)=>b-a),ps=[...new Set(DS.map(d=>d.per))];
+ const keep=[$('year').value,$('y1').value,$('y2').value,$('per').value];
+ ['year','y1','y2'].forEach(id=>$(id).innerHTML=ys.map(y=>`<option value="${y}">${yl(y)}</option>`).join(''));
+ $('per').innerHTML=ps.map(p=>`<option value="${p}">${pl(p)}</option>`).join('');
+ [['year',0],['y1',1],['y2',2],['per',3]].forEach(([id,i])=>{const e=$(id);if([...e.options].some(o=>o.value==keep[i]))e.value=keep[i]});
+ if(ys.length){if(!keep[1])$('y1').value=ys[ys.length-1];if(!keep[2])$('y2').value=ys[0]}
+ const G={};DS.forEach(d=>{const k=gk(d),g=G[k]=G[k]||{d,ys:[],n:0};g.ys.push(d.year);g.n=Math.max(g.n,d.rows.length)});
+ $('chips').innerHTML=Object.keys(G).map(k=>{const g=G[k],a=Math.min(...g.ys),b=Math.max(...g.ys);return`<span class="chip">${kn_(g.d)} ${pl(g.d.per)} ${yl(a)}${a<b?'–'+yl(b):''} (${g.ys.length} ${lang=='th'?'ปี':'yr'} · ${g.n} ${lang=='th'?'รายการ':'items'})<a onclick='delGrp(${JSON.stringify(k)})'>×</a></span>`}).join('');}
+function setLang(l){lang=l;document.documentElement.lang=l;['th','en'].forEach(x=>$('l'+x).className=x==l?'on':'');
+ const m={title:'title',hSum:'hs',bUp:'up',bClr:'clr',lMode:'mode',mGlobal:'global',mBorder:'border',lPer:'per',pS:'ps',pR:'pr',pA:'pa',lMon:'mon',lFlv:'flv',bGo:'go',vC:'vc',vI:'vi',vE:'ve',vT:'vt',bX:'xl',bG:'gr',bP:'png',lLab:'lab',lCmp:'cmp',cmpClr:'cmpc',lAllPer:'allp',bRst:'rst',lAbbr:'abbr'};
+ for(const k in m)$(k).textContent=t(m[k]);$('hBody').innerHTML=t('hb');$('cmpIn').placeholder=t('cmph');cmpChips();
+ const fv=$('flv').value||'country';$('flv').innerHTML=`<option value="country">${t('fc')}</option><option value="group">${t('fg')}</option><option value="commodity">${t('fs')}</option>`;$('flv').value=fv;
+ $('ctype').innerHTML=t('types').map((x,i)=>`<option value="${i}">${x}</option>`).join('');
+ const lv=$('labm').value||'all';$('labm').innerHTML=t('labs').map((x,i)=>`<option value="${LV[i]}">${x}</option>`).join('');$('labm').value=lv;
+ const ck=[...document.querySelectorAll('.nbc')].filter(c=>!c.checked).map(c=>c.value);
+ $('nb').innerHTML=`<label><input type="checkbox" onchange="document.querySelectorAll('.nbc').forEach(c=>c.checked=this.checked);render()"> ${t('all')}</label>`+Object.keys(NB).map(k=>`<label><input type="checkbox" class="nbc" value="${k}" ${ck.includes(k)?'':'checked'} onchange="render()"> ${t(k)}</label>`).join('');
+ fill();render();if($('chartCard').style.display!='none')drawChart();}
+function setMode(m){mode=m;$('nb').style.display=m=='border'?'flex':'none';$('cmpRow').style.display=m=='global'?'':'none';$('mGlobal').className=m=='global'?'on':'';$('mBorder').className=m=='border'?'on':'';
+ if(m=='border'&&DS.length){
+  if(view=='i'||view=='e')view='c';
+  const L=DS.filter(d=>d.kind=='trade'&&d.flv=='country');
+  if(L.length){$('flv').value='country';
+   const y=+$('year').value,p=$('per').value;
+   if(view!='t'&&!L.some(d=>d.year==y&&d.per==p)){const d=L.reduce((a,b)=>b.year>=a.year?b:a);$('year').value=d.year;$('per').value=d.per}
+   $('msg').textContent=t('bm')}
+  else $('msg').textContent=t('nb0')}
+ else if(m=='global'&&DS.length)$('msg').textContent='';
+ if(view!='t'&&pmode!='s')setP('s');else render();}
+function setP(m){pmode=m;$('boxS').style.display=m=='s'?'':'none';$('boxR').style.display=m=='r'?'':'none';['S','R','A'].forEach(x=>$('p'+x).className=x.toLowerCase()==m?'on':'');render();}
+function availList(){const fl=$('flv').value;
+ if(view=='i'||view=='e'){const fw=view=='i'?'M':'X';return DS.filter(d=>(d.kind=='comm'&&d.flow==fw)||(d.kind=='trade'&&d.flv=='commodity'))}
+ let L=DS.filter(d=>d.kind=='trade'&&d.flv==fl);return L.length||view=='t'?L:DS.filter(d=>d.kind=='trade')}
+function autoSel(){if(model())return false;const L=availList();if(!L.length)return false;
+ const d=L.reduce((a,b)=>b.year>=a.year?b:a);$('year').value=d.year;$('per').value=d.per;if(d.kind=='trade'&&(view=='c'||view=='t'))$('flv').value=d.flv;
+ if(view=='t'&&pmode=='r'){$('y1').value=Math.min(...L.map(x=>x.year));$('y2').value=d.year}
+ $('msg').textContent=t('auto');return true}
+function bestFlv(){const c={};DS.filter(d=>d.kind=='trade').forEach(d=>(c[d.flv]=c[d.flv]||new Set()).add(d.year));const k=Object.keys(c).sort((a,b)=>c[b].size-c[a].size||(a=='country'?-1:1));return k[0]}
+function setView(v){view=v;sort={k:null,d:-1};if(v=='t'){const k=(mode=='border'||cmp.length)?'country':bestFlv();if(k&&DS.some(d=>d.kind=='trade'&&d.flv==k))$('flv').value=k}autoSel();if(v=='t'&&pmode=='s')setP('a');else if(v!='t'&&pmode!='s')setP('s');else render();}
+['year','y1','y2','per','flv'].forEach(id=>$(id).onchange=()=>{sort={k:null,d:-1};render()});
+const sel=()=>[...document.querySelectorAll('.nbc:checked')].map(c=>c.value);
+function rowsFor(d){if(d.kind!='trade'||d.flv!='country')return d.rows;if(mode=='border')return d.rows.filter(r=>sel().some(k=>NB[k].test(r.name)));if(cmp.length)return d.rows.filter(r=>cmp.includes(r.name));return d.rows}
+function totOf(d,rs){if(mode=='global'&&d.tot&&!(cmp.length&&d.flv=='country'))return d.tot;const o={exp:0,imp:0};rs.forEach(r=>{o.exp+=r.exp;o.imp+=r.imp});o.bal=o.exp-o.imp;return o}
+function model(){const y=+$('year').value,p=$('per').value,fl=$('flv').value;let d,cols,rs,foot=null,unit='';
+ if(view=='c'){d=DS.find(x=>x.kind=='trade'&&x.year==y&&x.per==p&&x.flv==fl);if(!d)return null;rs=rowsFor(d).map(r=>({...r,name:nm(r.name),total:r.exp+r.imp}));unit=d.unit;
+  foot={name:t('sum'),...totOf(d,rowsFor(d))};cols=[['name',fl=='commodity'?'cmd':'country'],['imp','imp',1],['exp','exp',1],['bal','bal',1]];}
+ else if(view=='i'||view=='e'){const fw=view=='i'?'M':'X';
+  d=DS.find(x=>x.kind=='comm'&&x.flow==fw&&x.year==y&&x.per==p)||DS.find(x=>x.kind=='trade'&&x.flv=='commodity'&&x.rb==fw&&x.year==y&&x.per==p)||DS.find(x=>x.kind=='trade'&&x.flv=='commodity'&&x.year==y&&x.per==p);if(!d)return null;unit=d.unit;
+  const g=r=>d.kind=='comm'?r.val:r[fw=='M'?'imp':'exp'],all=d.tot?g(d.tot):d.rows.reduce((a,r)=>a+g(r),0);
+  rs=[...d.rows].sort((a,b)=>g(b)-g(a)).slice(0,10).map((r,i)=>({rank:i+1,name:r.name,val:g(r),share:all?g(r)/all*100:0}));
+  cols=[['rank','rank',1],['name','cmd'],['val','val',1],['share','share',1]];}
+ else{const ys=[+$('y1').value,+$('y2').value].sort((a,b)=>a-b),L=DS.filter(x=>x.kind=='trade'&&(allPer()||x.per==p)&&x.flv==fl).sort((a,b)=>b.year-a.year);
+  if(!L.length)return null;unit=L[0].unit;
+  rs=L.filter(x=>x.unit==unit&&(pmode=='a'||(pmode=='r'?x.year>=ys[0]&&x.year<=ys[1]:x.year==y))).map(x=>{const o=totOf(x,rowsFor(x));return{year:x.year,per:x.per,imp:o.imp,exp:o.exp,bal:o.bal,total:o.imp+o.exp}});
+  if(!rs.length)return null;const mp=new Set(rs.map(r=>r.per)).size>1;rs.forEach(r=>{r.lab=yl(r.year)+(mp?' ('+pl(r.per)+')':'')});cols=[['year','yr'],['imp','imp',1],['exp','exp',1],['bal','bal',1]];}
+ if(sort.k)rs.sort((a,b)=>(typeof a[sort.k]=='string'?a[sort.k].localeCompare(b[sort.k]):a[sort.k]-b[sort.k])*sort.d);
+ else if(view=='c')rs.sort((a,b)=>b.total-a.total);else if(view=='t')rs.sort((a,b)=>a.year-b.year||(a.per||'').localeCompare(b.per||''));
+ return{cols,rs,foot,unit,d,per:p}}
+function render(){['vC','vI','vE','vT'].forEach((i,n)=>$(i).className='ciet'.replace(' ','')[n]==view?'on':'');
+ $('allPerBox').style.display=view=='t'?'':'none';$('per').disabled=allPer();
+ const m=model(),tb=$('tbl');
+ if(!m){const L=availList(),g={};L.forEach(d=>(g[d.per]=g[d.per]||[]).push(d.year));
+  const h=Object.keys(g).map(p=>pl(p)+': '+yl(Math.min(...g[p]))+(g[p].length>1?'–'+yl(Math.max(...g[p])):'')).join(' ; ');
+  tb.innerHTML=`<tr><td>${t('none')}${h?'<br>'+t('have')+h:''}</td></tr>`;$('src').textContent='';$('chartCard').style.display='none';return}
+ const cell=(c,r)=>{const v=r[c[0]];if(c[0]=='bal')return`<td class="n ${v>=0?'pos':'neg'}">${fmt(v)}</td>`;if(c[0]=='year')return`<td>${r.lab||yl(v)}</td>`;if(c[0]=='rank')return`<td class="n">${v}</td>`;
+  if(c[0]=='share')return`<td class="n">${v.toFixed(2)}</td>`;return c[2]?`<td class="n">${fmt(v)}</td>`:`<td>${v==null?'':v}</td>`};
+ tb.innerHTML='<tr>'+m.cols.map(c=>`<th class="${c[2]?'n':''}" onclick="sortBy('${c[0]}')">${t(c[1])}${sort.k==c[0]?(sort.d>0?' ▲':' ▼'):''}</th>`).join('')+'</tr>'+
+  m.rs.map(r=>'<tr>'+m.cols.map(c=>cell(c,r)).join('')+'</tr>').join('')+(m.foot?'<tr class="ft">'+m.cols.map(c=>cell(c,m.foot)).join('')+'</tr>':'');
+ $('src').textContent=t('unit')+un(m.unit)+' | '+t('gk')+' | '+t('srcN')+(m.d&&m.d.kind=='trade'&&m.d.flv=='commodity'&&(view=='i'||view=='e')?' | '+t('cnote'):'')+(m.d&&m.d.upd?' | '+m.d.upd:'');
+ if($('chartCard').style.display!='none')drawChart();}
+function sortBy(k){sort=sort.k==k?{k,d:-sort.d}:{k,d:-1};render()}
+function xl(){const m=model();if(!m){$('msg').textContent=t('none');return}const hd=c=>t(c[1])+(c[2]&&!['rank','share'].includes(c[0])?' ('+un(m.unit)+')':'');
+ const rs=m.foot?[...m.rs,m.foot]:m.rs,a=rs.map(r=>Object.fromEntries(m.cols.map(c=>[hd(c),c[0]=='year'?(r.lab||yl(r[c[0]])):r[c[0]]])));
+ const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(a),'Trade');XLSX.writeFile(wb,`thai_trade_${view}_${yl(+$('year').value)}.xlsx`)}
+const cmpSort=(a,b)=>a.localeCompare(b,'th');
+const cmpNames=()=>{const s=new Set();DS.filter(d=>d.kind=='trade'&&d.flv=='country').forEach(d=>d.rows.forEach(r=>s.add(r.name)));return [...s]};
+function cmpSug(){const q=$('cmpIn').value.trim().toLowerCase(),box=$('cmpList'),en=n=>(EN[n]||'').toLowerCase();
+ let L=cmpNames().filter(n=>!cmp.includes(n));
+ if(q){const sw=L.filter(n=>n.toLowerCase().startsWith(q)||en(n).split(/\s+/).some(w=>w.startsWith(q)));
+  const inc=L.filter(n=>!sw.includes(n)&&(n.toLowerCase().includes(q)||en(n).includes(q)));L=[...sw.sort(cmpSort),...inc.sort(cmpSort)]}else L.sort(cmpSort);
+ L=cmpL=L.slice(0,40);box.innerHTML='';
+ if(!L.length){const d=document.createElement('div');d.className='opt no';d.textContent=t('cmpn');box.appendChild(d)}
+ L.forEach((n,i)=>{const d=document.createElement('div');d.className='opt'+(i==0&&q?' hl':'');d.textContent=lang=='en'&&EN[n]?EN[n]+' ('+n+')':n+(EN[n]?' ('+EN[n]+')':'');d.onclick=()=>cmpPick(n);box.appendChild(d)});
+ box.style.display='block'}
+function cmpKey(e){if(e.key=='Enter'){e.preventDefault();if(cmpL.length)cmpPick(cmpL[0])}else if(e.key=='Escape')$('cmpList').style.display='none';else if(e.key=='Backspace'&&!$('cmpIn').value&&cmp.length)cmpSet(cmp.slice(0,-1))}
+function cmpChips(){const b=$('cmpChips');b.innerHTML='';cmp.forEach(n=>{const c=document.createElement('span');c.className='chip';c.textContent=nm(n);const a=document.createElement('a');a.textContent='×';a.onclick=()=>cmpSet(cmp.filter(x=>x!=n));c.appendChild(a);b.appendChild(c)})}
+function cmpSet(a){cmp=a;cmpChips();if(cmp.length)toCountry();render()}
+function cmpPick(n){if(!cmp.includes(n))cmp.push(n);$('cmpIn').value='';cmpChips();toCountry();render();cmpSug();$('cmpIn').focus()}
+function toCountry(){if(view=='i'||view=='e')view='c';const L=DS.filter(d=>d.kind=='trade'&&d.flv=='country');if(!L.length)return;$('flv').value='country';
+ if(view!='t'){const y=+$('year').value,p=$('per').value;if(!L.some(d=>d.year==y&&d.per==p)){const d=L.reduce((a,b)=>b.year>=a.year?b:a);$('year').value=d.year;$('per').value=d.per}if(pmode!='s')setP('s')}}
+document.addEventListener('click',e=>{if(!$('cmpRow').contains(e.target))$('cmpList').style.display='none'});
+function resetUI(){
+ view='c';pmode='s';sort={k:null,d:-1};cmp=[];cmpChips();
+ if(chart){chart.destroy();chart=null}$('chartCard').style.display='none';
+ $('ctype').value=0;$('lab').checked=false;$('labm').value='all';$('allPer').checked=true;
+ $('cmpIn').value='';$('cmpList').style.display='none';$('file').value='';$('msg').textContent='';
+ document.querySelectorAll('.nbc').forEach(c=>c.checked=true);
+ const sa=document.querySelector('#nb input:not(.nbc)');if(sa)sa.checked=false;
+ if(DS.length){fill();const d=DS.reduce((a,b)=>b.year>a.year?b:a);$('year').value=d.year;$('per').value=d.per;$('flv').value=d.kind=='trade'?d.flv:'country';
+  const yo=[...$('y1').options];if(yo.length){$('y1').value=yo[yo.length-1].value;$('y2').value=yo[0].value}}
+ else $('flv').value='country';
+ setP('s');setMode('global');setView('c');window.scrollTo(0,0)}
+function showChart(){if(!model()){$('msg').textContent=t('none');return}$('chartCard').style.display='block';drawChart();$('chartCard').scrollIntoView({behavior:'smooth'})}
+const LV=['all','last','e2','e3','e5','e7','e10','max','min','mm'];
+const bg={id:'bg',beforeDraw(c){const x=c.ctx;x.save();x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.restore()}};
+const lb={id:'lb',afterDatasetsDraw(c){if(!$('lab').checked)return;const x=c.ctx,h=c.options.indexAxis=='y',md=$('labm').value||'all';
+ c.data.datasets.forEach((d,i)=>{const n=d.data.length,v=d.data.map(Number),mx=v.indexOf(Math.max(...v)),mn=v.indexOf(Math.min(...v));
+  const show=j=>md=='all'||(md=='last'&&j==n-1)||(/^e\d+$/.test(md)&&(n-1-j)%(+md.slice(1))==0)||(md=='max'&&j==mx)||(md=='min'&&j==mn)||(md=='mm'&&(j==mx||j==mn));
+  c.getDatasetMeta(i).data.forEach((el,j)=>{if(!show(j))return;const p=el.tooltipPosition();x.save();x.fillStyle='#111';x.font='11px Sarabun';x.textAlign=h?'left':'center';x.fillText(lf((d.real||d.data)[j]),p.x+(h?4:0),p.y-(h?-4:4));x.restore()})})}};
+function drawChart(){const m=model();if(!m)return;curUnit=m.unit;const ty=+$('ctype').value,type=['bar','bar','line','pie','doughnut','radar'][ty],circ=ty==3||ty==4;let lbls,ds,one=null;
+ const pal=['#1b3a6b','#2a9d8f','#e9c46a','#f4a261','#e76f51','#8d5fd3','#3a86ff','#06d6a0','#ef476f','#ffb703','#118ab2','#6a994e','#bc4749','#577590','#90be6d'];
+ const tri=a=>[{label:t('exp'),data:a.map(x=>x.exp),backgroundColor:'#2a9d8f',borderColor:'#2a9d8f'},{label:t('imp'),data:a.map(x=>x.imp),backgroundColor:'#e76f51',borderColor:'#e76f51'},{label:t('bal'),data:a.map(x=>x.bal),backgroundColor:a.map(x=>x.bal>=0?'#12872f':'#d62828'),borderColor:'#555'}];
+ if(view=='i'||view=='e'){lbls=m.rs.map(x=>x.name.slice(0,30));ds=[{label:t('val'),data:m.rs.map(x=>x.val),backgroundColor:(circ||ty<=1)?pal:'#1b3a6b',borderColor:(circ||ty<=1)?pal:'#1b3a6b'}]}
+ else{const a=view=='c'?[...m.rs].sort((x,y)=>y.total-x.total).slice(0,15):m.rs;
+  if(view=='c'&&a.length==1&&ty>=3){one=a[0];const real=[one.imp,one.exp,one.bal];lbls=[t('imp'),t('exp'),t('bal')];
+   ds=ty==5?[{label:one.name,data:real,backgroundColor:'rgba(27,58,107,.25)',borderColor:'#1b3a6b',pointBackgroundColor:'#1b3a6b'}]
+    :[{label:one.name,data:[one.imp,one.exp,Math.abs(one.bal)],real,backgroundColor:['#e76f51','#2a9d8f',one.bal>=0?'#12872f':'#d62828']}]}
+  else{lbls=a.map(x=>view=='c'?x.name:(x.lab||yl(x.year)));
+   ds=circ?[{label:t('total'),data:a.map(x=>x.total),backgroundColor:pal}]:tri(a)}}
+ const tk={callback:v=>abv(v,m.unit)},sc=!$('abbr').checked||circ?null:ty==5?{r:{ticks:tk}}:ty==1?{x:{ticks:tk}}:{y:{ticks:tk}};
+ const uT=()=>{const u=un(m.unit);return $('abbr').checked&&/ล้าน|million/i.test(m.unit)?u.replace(/ล้าน|million\s*/i,''):u};
+ if(chart)chart.destroy();
+ chart=new Chart($('cv'),{type,data:{labels:lbls,datasets:ds},plugins:[bg,lb],options:{responsive:true,maintainAspectRatio:false,indexAxis:ty==1?'y':'x',animation:false,layout:{padding:20},...(sc?{scales:sc}:{}),
+  plugins:{tooltip:{callbacks:{label:c=>`${circ?c.label:(c.dataset.label||c.label)}: ${fmt(c.dataset.real?c.dataset.real[c.dataIndex]:c.raw)}`}},title:{display:true,text:`${t('title')}${one?' – '+one.name:''} (${uT()})`}}}})}
+function png(){if(!chart)return;const a=document.createElement('a');a.href=$('cv').toDataURL('image/png');a.download=`thai_trade_${view}.png`;a.click()}
+if(DS.length){const d=DS.reduce((a,b)=>b.year>a.year?b:a);fill();$('year').value=d.year;$('per').value=d.per}
+setP('s');setMode('global');setLang('th');
+</script></body></html>
